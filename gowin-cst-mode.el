@@ -3,7 +3,7 @@
 ;; Copyright (C) 2026
 ;; Author: Yuriy Gritsenko
 ;; URL: https://github.com/yuravg/gowin-cst-mode
-;; Version: 1.0.0
+;; Version: 1.0.1
 ;; Keywords: languages
 ;; Package-Requires: ((emacs "29.1"))
 
@@ -48,7 +48,9 @@
 
 (defcustom gowin-cst-mode-values
   '("LVCMOS33" "LVCMOS25" "LVCMOS18" "LVCMOS15" "LVCMOS12"
-    "LVTTL33" "LVDS" "MLVDS" "SSTL" "SSTL25" "SSTL18" "SSTL15" "SSTL135"
+    "LVTTL33"
+    "LVDS" "LVDS25"
+    "MLVDS" "SSTL" "SSTL25" "SSTL18" "SSTL15" "SSTL135"
     "SSTL15D" "TMDS"
     "HSUL12" "PCI33" "PCI66"
     "FAST" "SLOW" "NONE" "UP" "DOWN" "KEEPER" "BUS_HOLD"
