@@ -3,7 +3,7 @@
 ;; Copyright (C) 2026
 ;; Author: Yuriy Gritsenko
 ;; URL: https://github.com/yuravg/gowin-cst-mode
-;; Version: 1.0.1
+;; Version: 1.0.2
 ;; Keywords: languages
 ;; Package-Requires: ((emacs "29.1"))
 
@@ -68,8 +68,10 @@
   `((,(regexp-opt gowin-cst-mode-keywords 'words) . font-lock-keyword-face)
     (,(regexp-opt gowin-cst-mode-attributes 'words) . font-lock-type-face)
     (,(regexp-opt gowin-cst-mode-values 'words) . font-lock-constant-face)
-    ;; Pin locations (e.g., M11, J1, G16) after IO_LOC keyword
-    ("IO_LOC\\s-+\"[^\"]*\"\\s-+\\([A-Z][0-9]+\\)" 1 font-lock-builtin-face)
+    ;; Pin locations (e.g., M11, J1, G16 or P13,N13) after IO_LOC keyword
+    ("IO_LOC\\s-+\"[^\"]*\"\\s-+\\([A-Z][0-9]+\\)"
+     (1 font-lock-builtin-face)
+     (",\\s-*\\([A-Z][0-9]+\\)" nil nil (1 font-lock-builtin-face)))
     ;; Numbers (integer and decimal)
     ("\\b[0-9]+\\(?:\\.[0-9]+\\)?\\b" . 'font-lock-number-face)))
 

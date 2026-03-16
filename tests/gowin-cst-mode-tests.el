@@ -106,6 +106,14 @@
     (search-forward "M11")
     (should (eq (gowin-cst-test-face-at (match-beginning 0)) 'font-lock-builtin-face))))
 
+(ert-deftest gowin-cst-fontify-pin-location-multi ()
+  "Multiple comma-separated pin locations after IO_LOC are all highlighted."
+  (gowin-cst-test-with-buffer "IO_LOC \"clk\" P13,N13;\n"
+    (search-forward "P13")
+    (should (eq (gowin-cst-test-face-at (match-beginning 0)) 'font-lock-builtin-face))
+    (search-forward "N13")
+    (should (eq (gowin-cst-test-face-at (match-beginning 0)) 'font-lock-builtin-face))))
+
 ;;; Completion
 
 (ert-deftest gowin-cst-completion-at-point-works ()
