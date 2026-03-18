@@ -48,6 +48,28 @@
   (gowin-cst-test-with-buffer "// this is a comment\n"
     (should (nth 4 (syntax-ppss 5)))))
 
+(ert-deftest gowin-cst-block-comment-inline ()
+  "/* */ inline block comments are recognized by the syntax table."
+  (gowin-cst-test-with-buffer "IO_LOC /* comment */ \"led\" M11;\n"
+    (search-forward "/* ")
+    (should (nth 4 (syntax-ppss (point))))))
+
+(ert-deftest gowin-cst-block-comment-multiline ()
+  "Multi-line /* */ block comments are recognized by the syntax table."
+  (gowin-cst-test-with-buffer "/*\ncommented text\n*/\n"
+    (search-forward "commented")
+    (should (nth 4 (syntax-ppss (point))))))
+
+(ert-deftest gowin-cst-block-comment-inline-code-around ()
+  "Code before and after /* */ block comment is not treated as comment."
+  (gowin-cst-test-with-buffer "IO_LOC /* comment */ \"led\" M11;\n"
+    ;; 'IO_LOC' at position 1 should not be in a comment
+    (should-not (nth 4 (syntax-ppss 1)))
+    ;; text after */ should not be in a comment
+    (search-forward "*/")
+    (let ((pos-after (point)))
+      (should-not (nth 4 (syntax-ppss pos-after))))))
+
 ;;; Font-lock: keywords
 
 (ert-deftest gowin-cst-fontify-keyword-io-loc ()
@@ -113,6 +135,98 @@
     (should (eq (gowin-cst-test-face-at (match-beginning 0)) 'font-lock-builtin-face))
     (search-forward "N13")
     (should (eq (gowin-cst-test-face-at (match-beginning 0)) 'font-lock-builtin-face))))
+
+(ert-deftest gowin-cst-fontify-pin-after-inline-comment ()
+  "Pin location after inline /* comment */ is highlighted."
+  (gowin-cst-test-with-buffer
+      "IO_LOC  \"signal_name1\"  /* It's comment */   F14;\n"
+    (search-forward "F14")
+    (should (eq (gowin-cst-test-face-at (match-beginning 0)) 'font-lock-builtin-face))))
+
+(ert-deftest gowin-cst-fontify-pin-after-inline-comment-with-trailing ()
+  "Pin after inline comment with trailing comment is highlighted."
+  (gowin-cst-test-with-buffer
+      "IO_LOC  \"signal_name1\"  /* It's comment */   F14; /* It's comment */\n"
+    (search-forward "F14")
+    (should (eq (gowin-cst-test-face-at (match-beginning 0)) 'font-lock-builtin-face))))
+
+(ert-deftest gowin-cst-fontify-multi-pin-after-inline-comment ()
+  "Comma-separated pins after inline comment with trailing comment."
+  (gowin-cst-test-with-buffer
+      "IO_LOC \"tx_refclk_p\" /* It's comment */ A13,B13; /* It's comment */\n"
+    (search-forward "A13")
+    (should (eq (gowin-cst-test-face-at (match-beginning 0)) 'font-lock-builtin-face))
+    (search-forward "B13")
+    (should (eq (gowin-cst-test-face-at (match-beginning 0)) 'font-lock-builtin-face))))
+
+(ert-deftest gowin-cst-fontify-pin-with-comment-between-keyword-and-signal ()
+  "Pin highlighted when /* comment */ appears between IO_LOC and signal name."
+  (gowin-cst-test-with-buffer
+      "IO_LOC /* comm */ \"signal_name1\" F14;\n"
+    (search-forward "F14")
+    (should (eq (gowin-cst-test-face-at (match-beginning 0)) 'font-lock-builtin-face))))
+
+(ert-deftest gowin-cst-fontify-pin-with-comments-everywhere ()
+  "Pin highlighted with /* comments */ before IO_LOC, between keyword and signal, and after signal."
+  (gowin-cst-test-with-buffer
+      "/* It's comment */ IO_LOC /* It's comment */ \"signal_name1\" /* It's comment */ F14;\n"
+    (search-forward "F14")
+    (should (eq (gowin-cst-test-face-at (match-beginning 0)) 'font-lock-builtin-face))))
+
+;;; Font-lock: IO_PORT with comments
+
+(ert-deftest gowin-cst-fontify-io-port-keyword-with-inline-comment ()
+  "IO_PORT keyword is highlighted even when inline comment follows."
+  (gowin-cst-test-with-buffer
+      "IO_PORT \"signal_name2[2]\" /* It's comment */ IO_TYPE=LVCMOS25 PULL_MODE=UP DRIVE=8 BANK_VCCIO=2.5;\n"
+    (should (eq (gowin-cst-test-face-at 1) 'font-lock-keyword-face))))
+
+(ert-deftest gowin-cst-fontify-attribute-after-inline-comment ()
+  "IO_TYPE attribute after /* comment */ is still highlighted."
+  (gowin-cst-test-with-buffer
+      "IO_PORT \"signal_name2[2]\" /* It's comment */ IO_TYPE=LVCMOS25 PULL_MODE=UP DRIVE=8 BANK_VCCIO=2.5;\n"
+    (search-forward "IO_TYPE")
+    (should (eq (gowin-cst-test-face-at (match-beginning 0)) 'font-lock-type-face))))
+
+(ert-deftest gowin-cst-fontify-attribute-before-trailing-comment ()
+  "Attributes are highlighted when line has a trailing /* comment */."
+  (gowin-cst-test-with-buffer
+      "IO_PORT \"signal_name2[3]\" IO_TYPE=LVCMOS25 PULL_MODE=UP DRIVE=8 BANK_VCCIO=2.5; /* It's comment */\n"
+    (search-forward "IO_TYPE")
+    (should (eq (gowin-cst-test-face-at (match-beginning 0)) 'font-lock-type-face))
+    (search-forward "PULL_MODE")
+    (should (eq (gowin-cst-test-face-at (match-beginning 0)) 'font-lock-type-face))))
+
+(ert-deftest gowin-cst-fontify-inline-comment-text-is-comment ()
+  "Text inside /* */ in IO_PORT is recognized as comment."
+  (gowin-cst-test-with-buffer
+      "IO_PORT \"sig\" /* a comment */ IO_TYPE=LVCMOS25;\n"
+    (search-forward "a comment")
+    (should (nth 4 (syntax-ppss (match-beginning 0))))))
+
+;;; Font-lock: block comment suppresses keywords
+
+(ert-deftest gowin-cst-block-comment-suppresses-keyword ()
+  "IO_LOC inside a /* */ block comment is not highlighted as keyword."
+  (gowin-cst-test-with-buffer "/*\nIO_LOC  \"signal_name\"    F100;\n*/\n"
+    (search-forward "IO_LOC")
+    (should (eq (gowin-cst-test-face-at (match-beginning 0)) 'font-lock-comment-face))))
+
+;;; Font-lock: string with bus index
+
+(ert-deftest gowin-cst-fontify-string-with-bus-index ()
+  "Quoted string with bus index like \"signal[0]\" is highlighted as string."
+  (gowin-cst-test-with-buffer "IO_PORT \"signal_name2[0]\" IO_TYPE=LVCMOS25;\n"
+    (search-forward "\"signal_name2[0]\"")
+    (should (eq (gowin-cst-test-face-at (1+ (match-beginning 0))) 'font-lock-string-face))))
+
+;;; Font-lock: BANK_VCCIO decimal value
+
+(ert-deftest gowin-cst-fontify-bank-vccio-decimal ()
+  "Decimal value 2.5 in BANK_VCCIO=2.5 is highlighted as number."
+  (gowin-cst-test-with-buffer "IO_PORT \"sig\" BANK_VCCIO=2.5;\n"
+    (search-forward "2.5")
+    (should (eq (gowin-cst-test-face-at (match-beginning 0)) 'font-lock-number-face))))
 
 ;;; Completion
 

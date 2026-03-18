@@ -3,7 +3,7 @@
 ;; Copyright (C) 2026
 ;; Author: Yuriy Gritsenko
 ;; URL: https://github.com/yuravg/gowin-cst-mode
-;; Version: 1.0.2
+;; Version: 1.1.0
 ;; Keywords: languages
 ;; Package-Requires: ((emacs "29.1"))
 
@@ -12,6 +12,10 @@
 ;; Provides syntax highlighting for keywords (IO_LOC, IO_PORT, etc.),
 ;; attributes (IO_TYPE, DRIVE, etc.), values (LVCMOS33, FAST, etc.),
 ;; pin locations (e.g., M11, J1, G16), and numbers.
+;;
+;; Supports two comment styles:
+;;   // line comment
+;;   /* block comment (single or multi-line) */
 ;;
 ;; Also provides completion-at-point for keywords, attributes, and values,
 ;; and imenu support for IO_LOC/IO_PORT entries.
@@ -68,8 +72,10 @@
   `((,(regexp-opt gowin-cst-mode-keywords 'words) . font-lock-keyword-face)
     (,(regexp-opt gowin-cst-mode-attributes 'words) . font-lock-type-face)
     (,(regexp-opt gowin-cst-mode-values 'words) . font-lock-constant-face)
-    ;; Pin locations (e.g., M11, J1, G16 or P13,N13) after IO_LOC keyword
-    ("IO_LOC\\s-+\"[^\"]*\"\\s-+\\([A-Z][0-9]+\\)"
+    ;; Pin locations (e.g., M11, J1, G16 or P13,N13) after IO_LOC keyword.
+    ;; The pattern between signal name and pin allows whitespace and
+    ;; inline /* */ block comments.
+    ("IO_LOC\\(?:\\s-\\|/\\*\\(?:[^*]\\|\\*[^/]\\)*\\*/\\)+\"[^\"]*\"\\(?:\\s-\\|/\\*\\(?:[^*]\\|\\*[^/]\\)*\\*/\\)+\\([A-Z][0-9]+\\)"
      (1 font-lock-builtin-face)
      (",\\s-*\\([A-Z][0-9]+\\)" nil nil (1 font-lock-builtin-face)))
     ;; Numbers (integer and decimal)
@@ -79,10 +85,15 @@
 
 (defvar gowin-cst-mode-syntax-table
   (let ((st (make-syntax-table)))
-    ;; // starts a comment
-    (modify-syntax-entry ?/ ". 12" st)
-    ;; newline ends a comment
-    (modify-syntax-entry ?\n ">" st)
+    ;; / and * support both // line comments and /* */ block comments.
+    ;; Flags: 1=1st of comment-start, 2=2nd of comment-start,
+    ;;        3=1st of comment-end, 4=2nd of comment-end, b=style-b.
+    ;; //: style-b (/ has flags 1,2,4 with b; \n ends style-b only)
+    ;; /* */: style-a (* has flags 2,3 without b)
+    (modify-syntax-entry ?/ ". 124b" st)
+    (modify-syntax-entry ?* ". 23" st)
+    ;; newline ends // (style-b) line comments only, not /* */ blocks
+    (modify-syntax-entry ?\n "> b" st)
     ;; Handle strings
     (modify-syntax-entry ?\" "\"" st)
     ;; _ is part of a word
