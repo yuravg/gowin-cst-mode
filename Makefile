@@ -5,6 +5,7 @@
 # Package information
 PACKAGE := gowin-cst-mode.el
 VERSION := $(shell perl -ne 'if (/^;;\s*Version:\s*(\S+)/) {print $$1; last}' $(PACKAGE))
+TEST_COUNT := $(shell grep -c 'ert-deftest' tests/gowin-cst-mode-tests.el 2>/dev/null || echo 0)
 
 # Emacs command
 EMACS ?= emacs
@@ -29,12 +30,31 @@ test:
 	fi
 
 compile:
+	@echo "Byte-compiling $(PACKAGE)..."
 	@$(BATCH) -f batch-byte-compile $(PACKAGE)
+	@echo "✓ Compilation successful"
 
 checkdoc:
-	@$(BATCH) --eval "(checkdoc-file \"$(PACKAGE)\")"
+	@echo "Running checkdoc..."
+	@$(BATCH) --eval "\
+	(progn \
+	  (require 'checkdoc) \
+	  (let ((checkdoc-diagnostic-buffer \"*chk*\")) \
+	    (checkdoc-file \"$(PACKAGE)\") \
+	    (when (get-buffer \"*chk*\") \
+	      (with-current-buffer \"*chk*\" \
+	        (unless (zerop (buffer-size)) \
+	          (message \"%s\" (buffer-string)) \
+	          (kill-emacs 1))))))"
 
 ci: clean compile checkdoc test
+	@echo ""
+	@echo "✓ All CI checks passed!"
+	@echo "  - Byte compilation: OK"
+	@echo "  - Documentation: OK"
+	@echo "  - Tests: $(TEST_COUNT)/$(TEST_COUNT) passing"
 
 clean:
-	@rm -f *.elc
+	@echo "Cleaning generated files..."
+	@rm -f *.elc *~
+	@echo "✓ Clean complete"
